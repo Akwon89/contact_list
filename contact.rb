@@ -1,94 +1,93 @@
-require 'csv'
-require'pry'
-CSV.read('contacts.csv') 
+require 'pg'
 
-# Represents a person in an address book.
-# The ContactList class will work with Contact objects instead of interacting with the CSV file directly
 class Contact
   
-  attr_accessor :name, :email
+  attr_accessor :id, :name, :email
   
-  # Creates a new contact object
-  # @param name [String] The contact's name
-  # @param email [String] The contact's email address
+ 
   def initialize(name, email)
-    # TODO: Assign parameter values to instance variables.
     @name = name
     @email = email
   end
+  
+  def save
+    if self.id
+      # => update the record
+      res = self.class.connection.exec_params('
+        UPDATE contacts SET 
+        name = $1, email = $2 
+        WHERE id = $3::int RETURNING *
+      ', [self.name, self.email, self.id])
+    else
+      # => insert a new record
+      res = self.class.connection.exec_params("
+          INSERT INTO contacts (name, email) 
+          VALUES($1, $2) RETURNING id", [self.name, self.email])
+      # self.id = res.first["id"]
+    end
+  end
 
-  # Provides functionality for managing contacts in the csv file.
+  def destroy
+    self.class.connection.exec_params('DELETE FROM contacts WHERE id = $1::int', [self.id])
+  end
+
   class << self
 
-    # Opens 'contacts.csv' and creates a Contact object for each line in the file (aka each contact).
-    # @return [Array<Contact>] Array of Contact objects
+    def connection
+      PG.connect(
+      host: 'localhost',
+      dbname: 'contacts',
+      user: 'development',
+      password: 'development'
+      )
+    end
+
     def all
-      # TODO: Return an Array of Contact instances made from the data in 'contacts.csv'.
-      #total_contacts = []
-      CSV.read('contacts.csv').each{ |contact| puts "#{contact[0]} #{contact[1]} #{contact[2]}"} 
-      puts "--------------------------------------"
-      puts "#{CSV.read('contacts.csv').size} records total"
-      #CSV.read('contacts.csv').each{ |contact| total_contacts << contact}
-      #total_contacts_count = total_contacts.length
-      #puts "#{total_contacts_count} records total"
-
+      self.connection.exec("SELECT * FROM contacts")
     end
 
+    def instantiate_contact_from_hash(contact)
+      # contact = Contact.new
+      # contact.id = hash["id"]
+      # contact.name = hash["name"]
+      # contact.email = hash["email"]
+      # contact
+      c = self.new(contact["name"], contact["email"])
+      c.id = contact["id"]
+      c
+    end
 
-    # Creates a new contact, adding it to the csv file, returning the new contact.
-    # @param name [String] the new contact's name
-    # @param email [String] the contact's email
+    def first
+      res = connection.exec_params("SELECT * FROM contacts ORDER BY id ASC LIMIT 1")
+      # instantiate_contact_from_hash(res.first)
+    end
+
+    def last
+      res = connection.exec_params("SELECT * FROM contacts ORDER BY id DESC LIMIT 1")
+      # instantiate_contact_from_hash(res.first)
+    end
+
     def create(name, email)
-      # TODO: Instantiate a Contact, add its data to the 'contacts.csv' file, and return it.
-      id_num = CSV.read('contacts.csv').size + 1
-      CSV.open('contacts.csv', 'a+'){ |csv| csv << [id_num, name, email] }
+      contact = Contact.new(name, email)
+      contact.save
+      contact
     end
     
-    # Find the Contact in the 'contacts.csv' file with the matching id.
-    # @param id [Integer] the contact id
-    # @return [Contact, nil] the contact with the specified id. If no contact has the id, returns nil.
     def find(id)
-      # TODO: Find the Contact in the 'contacts.csv' file with the matching id.
-      # contacts = []
-      # CSV.read('contacts.csv').each{ |contact| contacts << contact }
-      # id = contacts[0]
-      # p id
-      id_arr = nil
-      CSV.read('contacts.csv').each{ |contact| id_arr = contact if id == contact[0] }
-      id_arr
-        # if id_arr == []
-        #   puts "id not found"
-        # else
-        #   id_arr
-        #   puts id_arr[0]
-        #   puts id_arr[1]
-        #   puts id_arr[2]
-        # end
-      # CSV.read('contacts.csv').find { |contact| contact[0] == id }
+      res = self.connection.exec_params('SELECT * FROM contacts WHERE id = $1::int', [id]).first
+      instantiate_contact_from_hash(res)
     end
-    
-    # Search for contacts by either name or email.
-    # @param term [String] the name fragment or email fragment to search for
-    # @return [Array<Contact>] Array of Contact objects.
-    def search(term)
-      # TODO: Select the Contact instances from the 'contacts.csv' file whose name or email attributes contain the search term.
-       search_array = []
-      CSV.read('contacts.csv').select { |contact| search_array << contact if contact.include?(term)}
-      search_array
 
-      # if search_array.select!{ |list| list.include?(term) }
-      #   search_array.size
-      #   puts search_array
-      #   puts "----------------"
-      #   puts "#{search_array.size} records found"
-      # else 
-      #   puts "term not found"
-      # end
+    def search(term)
+     search_string = '%' + term + '%'
+     res = self.connection.exec_params('SELECT * FROM contacts WHERE name LIKE $1 OR email LIKE $2', [search_string, search_string]).to_a
+     res.map { |contact| instantiate_contact_from_hash(contact) }
     end
 
   end
 
 end
 
-# p Contact.search("Andrew")
-# binding.pry
+
+# Contact.all
+

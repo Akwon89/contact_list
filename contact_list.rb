@@ -1,66 +1,123 @@
 require_relative 'contact'
-require 'pry'
-CSV.read('contacts.csv') 
-# Interfaces between a user and their contact list. Reads from and writes to standard I/O.
+
 class ContactList
 
   class << self
 
     def list_commands
-      puts "Here is a list of commands:
-            new - Create a new contact.
-            list - List all contacts.
-            show - Show a contact
-            search - Search contacts."
+      puts "<--------------------------------------------x
+            x--------------------------------x
+              Here is a list of commands:
+              new - Create a new contact.
+              update (id#) - Update a contact.
+              delete - Delete a contact.
+              list - List all contacts.
+              show - Show a contact
+              search - Search contacts.
+            x--------------------------------x
+            x--------------------------------x"
     end
-  # TODO: Implement user interaction. This should be the only file where you use `puts` and `gets`.
+
     def new
       puts "who would you like to add?"
       puts "name: ?"
       name = $stdin.gets.chomp
       puts "email: ?"
-      email = $stdin.gets.chomp
+      email = $stdin.gets.chomp 
       Contact.create(name,email)
       puts "contact #{name} with the email #{email} has been added!"
     end
 
     def list
-      Contact.all
+      puts "Here is a list of contacts..."
+      contacts = Contact.all.to_a
+      contacts.each { |contact| puts "#{contact["id"]}: #{contact["name"]} -- #{contact["email"]}" }
+    end
+
+    def update(id)
+      contact = Contact.find(id)
+      puts "Enter new name: "
+      new_name = $stdin.gets.chomp
+      puts "Enter new email: "
+      new_email = $stdin.gets.chomp
+      contact.name = new_name
+      contact.email = new_email
+      contact.save    
     end
 
     def show
-      # id_arr =[]
-      puts "whos id# are you looking for?"
-      id = $stdin.gets.chomp
-      if (found = Contact.find(id))
-        puts found[0]
-        puts found[1]
-        puts found[2]
-      else
-        puts "id not found"
+      begin
+        print "Enter id to search: "
+        id = $stdin.gets.chomp
+        contact = Contact.find(id)
+        if contact != nil
+          puts "Displaying contact with #{id}..."
+          puts "#{contact.id}: #{contact.name} -- #{contact.email}"
+        else
+          puts "not found"
+        end
+      rescue => e
+        puts e.message
+        show
       end
-      # CSV.read('contacts.csv').each{ |contact| id_arr = contact if id == contact[0].to_i }
-      
     end
+
+    def delete
+     begin
+        print "Enter id to delete: "
+        id = $stdin.gets.chomp
+        contact = Contact.find(id)
+        if contact != nil
+          puts "Deleting #{id}..."
+          puts "#{contact.id}: #{contact.name} -- #{contact.email}"
+          contact.destroy
+          puts "DELETED!"
+        else
+          puts "not found"
+        end
+      rescue => e
+        puts e.message
+        show
+      end
+    end
+
+
+    # def show
+    #   puts "whos id# are you looking for?"
+    #   id = $stdin.gets.chomp
+    #   if (found = Contact.find(id))
+    #     found.find(id).each { |contact| puts "Found!!! : #{contact["id"]}: #{contact["name"]} -- #{contact["email"]}" }
+    #   else
+    #     puts "id not found"
+    #   end
+    # end
      
 
     def search
       puts"who are you searching for?"
       term = $stdin.gets.chomp
       if found = (Contact.search(term))
-        puts found
+        found.each { |contact| puts "#{contact.id} : #{contact.name} -- #{contact.email}"}
         puts "----------------"
         puts "#{found.size} records found"
       else 
         puts "term not found"
       end
     end
+
   end
+
 end
 
 
 if ARGV[0] == "new"
   ContactList.new
+elsif 
+  ARGV[0] == "update" and ARGV[1].to_i.is_a?Fixnum
+  ContactList.update(ARGV[1])
+elsif 
+  ARGV[0] == "delete"
+  ContactList.delete
 elsif
   ARGV[0] == "list"
   ContactList.list
