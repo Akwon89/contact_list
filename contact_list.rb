@@ -1,5 +1,5 @@
 require_relative 'contact'
-
+require 'pry'
 class ContactList
 
   class << self
@@ -24,14 +24,14 @@ class ContactList
       name = $stdin.gets.chomp
       puts "email: ?"
       email = $stdin.gets.chomp 
-      Contact.create(name,email)
+      Contact.create(name: name,email: email)
       puts "contact #{name} with the email #{email} has been added!"
     end
 
     def list
       puts "Here is a list of contacts..."
-      contacts = Contact.all.to_a
-      contacts.each { |contact| puts "#{contact["id"]}: #{contact["name"]} -- #{contact["email"]}" }
+      contacts = Contact.all
+      contacts.each { |contact| puts "#{ contact.id }: #{ contact.name } -- #{ contact.email }" }
     end
 
     def update(id)
@@ -64,7 +64,7 @@ class ContactList
 
     def delete
      begin
-        print "Enter id to delete: "
+        puts "Enter id to delete: "
         id = $stdin.gets.chomp
         contact = Contact.find(id)
         if contact != nil
@@ -96,10 +96,12 @@ class ContactList
     def search
       puts"who are you searching for?"
       term = $stdin.gets.chomp
-      if found = (Contact.search(term))
+      if found = (Contact.where(['name LIKE ?', "%#{term}%"]))
+        # found = (Contact.exists?(['name LIKE ?', "%#{term}%"]))
+        # binding.pry
         found.each { |contact| puts "#{contact.id} : #{contact.name} -- #{contact.email}"}
         puts "----------------"
-        puts "#{found.size} records found"
+        puts "#{found.length} records found"
       else 
         puts "term not found"
       end
